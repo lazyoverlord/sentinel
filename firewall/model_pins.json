@@ -1,0 +1,6 @@
+{
+  "protectai/deberta-v3-base-prompt-injection-v2": null,
+  "meta-llama/Llama-Prompt-Guard-2-86M": null,
+  "meta-llama/Llama-Prompt-Guard-2-22M": null,
+  "jackhhao/jailbreak-classifier": null
+}

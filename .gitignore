@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+data/audit/
+data/cache/
+data/public/
+data/feedback/*.jsonl
+data/redteam/runs/
+eval/results/runs/
+.pytest_cache/
+.DS_Store
