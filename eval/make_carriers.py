@@ -107,6 +107,8 @@ def _pdf(cover: str, text: str | None = None, *, hidden: bool = False, subject: 
             _pdf_paragraph(doc, page, y + 14, text, fontsize=11)
     doc.set_metadata({"title": "Operations update", "author": "Operations Desk",
                       "subject": subject or "", "creator": "", "producer": ""})
+    doc.subset_fonts()          # embedded system fonts (e.g. Arial Unicode.ttf, ~23MB) carry every
+                                # glyph; keep only the ones actually used or the PDF blows past MAX_FILE_BYTES
     data = doc.tobytes(garbage=3, deflate=True)
     doc.close()
     return data
