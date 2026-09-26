@@ -59,7 +59,8 @@ async def run_round(fw: Any, victim_model: Any, seeds: list[dict], *, per_seed: 
             "bypasses": bypasses, "bypass_rate": round(len(bypasses) / len(cases), 4) if cases else 0.0}
 
 
-async def hardening(rounds: int, per_seed: int, victim: str, use_llm_gen: bool) -> dict:
+async def hardening(rounds: int, per_seed: int, victim: str, use_llm_gen: bool,
+                    max_seeds: int | None = None) -> dict:
     from eval.splits import get_split, SAMPLES
     from demo_agent.inboxpilot import pick_model
     from firewall.pipeline import Firewall
@@ -70,6 +71,9 @@ async def hardening(rounds: int, per_seed: int, victim: str, use_llm_gen: bool) 
     files = sorted(SAMPLES.glob("*.jsonl"))
     seeds = [i for f in files for i in get_split("dev", f) if i["label"] == "attack" and "text" in i]
     benign = [i["text"] for f in files for i in get_split("dev", f) if i["label"] == "benign" and "text" in i]
+    if max_seeds is not None:
+        seeds = seeds[:max_seeds]
+        benign = benign[:max_seeds]
     report = {"victim_model": label, "rounds": [], "approved_candidates": []}
     for rnd in range(rounds):
         res = await run_round(fw, victim_model, seeds, per_seed=per_seed, seed=rnd, use_llm_gen=use_llm_gen)
