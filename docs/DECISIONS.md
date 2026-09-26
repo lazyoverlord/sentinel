@@ -4,6 +4,9 @@ Every deviation from docs/SPEC.md, and every judgment call SPEC leaves open. New
 
 | Date | Decision | Why | SPEC § |
 |---|---|---|---|
+| 2026-09-26 | POISONED_HTML tuned: 3 variants tested (bureaucratic footer, workflow metadata, visible sender request + hidden backup); all 0/3 on gemini-3.5-flash-lite | Gemini's own RLHF hardening resists indirect injection even unprotected — the model only summarises when asked to summarise, ignoring forwarding requests in email content. Valid §15.3 outcome: the firewall demo works against the scripted victim and can use Ollama for a gullible LLM target; Gemini resistance is the positive control | 15.3 |
+| 2026-09-26 | `pick_model()` fixed: Ollama `LiteLlm` path guarded by `_is_ollama_model()` prefix check; Gemini models returned as plain strings for ADK's native `GoogleLlm` registry | Old code sent Gemini model names to the Ollama server when Ollama was healthy, causing 404s | 15.3 |
+| 2026-09-26 | VICTIM_MODEL / REDTEAM_MODEL set to `gemini-3.5-flash-lite` in .env; Ollama removed as a dependency | Owner decision: no local model requirement for now | 15.3, 14 |
 | 2026-09-24 | CLASSIFIERS default `c1,c2_86m` (Prompt Guard 2 86M) | Owner's HF access approved; adds jailbreak + Hindi coverage, so Devanagari fast-passes instead of always-review | 7.1, 7.4 |
 | 2026-09-24 | Red-team generation is deterministic operators by default; the Gemini paraphraser is opt-in (`--llm-gen`) | Rounds cost zero quota; a bypass still requires the canary harness | 14 |
 | 2026-09-24 | Red-team cases run through `analyze` (the firewall), not a private path; victim via the InboxPilot model picker (ollama/gemini/scripted) | One code path; offline-testable with the scripted victim | 14 |
