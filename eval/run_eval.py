@@ -151,7 +151,12 @@ async def run_llm_only(items: list[dict], run_id: str) -> tuple[list[dict], dict
 
     runner = CheckpointedRunner(RESULTS / "runs", run_id)
     status = await runner.run(items, one)
-    return [r for r in runner.load_results() if "error" not in r], status.model_dump(mode="json")
+    return _unwrap_results(runner.load_results()), status.model_dump(mode="json")
+
+
+def _unwrap_results(records: list[dict]) -> list[dict]:
+    """Extract the inner result dict from checkpoint envelope records, skipping errors."""
+    return [rec["result"] for rec in records if rec.get("status") == "ok" and "result" in rec]
 
 
 async def run_full(items: list[dict], run_id: str) -> tuple[list[dict], dict]:
@@ -178,7 +183,7 @@ async def run_full(items: list[dict], run_id: str) -> tuple[list[dict], dict]:
     runner = CheckpointedRunner(RESULTS / "runs", run_id)
     status = await runner.run(items, one)
     fw.close()
-    return [r for r in runner.load_results() if "error" not in r], status.model_dump(mode="json")
+    return _unwrap_results(runner.load_results()), status.model_dump(mode="json")
 
 
 # ------------------------------------------------------------------ metrics
