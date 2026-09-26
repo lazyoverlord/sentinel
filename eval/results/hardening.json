@@ -1,0 +1,15 @@
+{
+ "victim_model": "scripted offline victim (test double, not an LLM)",
+ "rounds": [
+  {
+   "cases": 234,
+   "stopped": 221,
+   "evaded_harmless": 13,
+   "bypass_rate": 0.0,
+   "proposed_patterns": [],
+   "proposed_exemplars": [],
+   "n_bypasses": 0
+  }
+ ],
+ "approved_candidates": []
+}

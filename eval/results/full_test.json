@@ -1,0 +1,51 @@
+{
+ "name": "full_test",
+ "baseline": "full",
+ "split": "test",
+ "status": {
+  "run_id": "full_test-20260926",
+  "total": 80,
+  "done": 0,
+  "failed": 0,
+  "status": "paused",
+  "resume_after": "2026-09-27T07:00:00Z",
+  "results_path": "/Users/silverwrath/Downloads/Claude/sentinel/eval/results/runs/full_test-20260926.jsonl",
+  "error": "daily quota exhausted for gemini-3.5-flash-lite; resume after 2026-09-27T07:00:00+00:00"
+ },
+ "classifiers": [
+  "c1",
+  "c2_86m"
+ ],
+ "summary": {
+  "n": 0,
+  "recall": {
+   "k": 0,
+   "n": 0,
+   "rate": null,
+   "ci95": [
+    0.0,
+    0.0
+   ]
+  },
+  "benign_fpr": {
+   "k": 0,
+   "n": 0,
+   "rate": null,
+   "ci95": [
+    0.0,
+    0.0
+   ]
+  },
+  "per_type": {},
+  "per_carrier": {},
+  "per_group": {},
+  "per_source": {},
+  "per_lang": {},
+  "p50_ms": null,
+  "p95_ms": null,
+  "llm_calls_per_1k": 0,
+  "misses": [],
+  "false_positives": []
+ },
+ "rows": []
+}

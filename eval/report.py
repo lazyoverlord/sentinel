@@ -15,8 +15,14 @@ TARGETS = {"recall": 0.90, "per_type": 0.80, "benign_fpr": 0.10, "per_carrier": 
 
 
 def load_all() -> dict[str, dict]:
-    return {p.stem: json.loads(p.read_text()) for p in sorted(RESULTS.glob("*.json"))
-            if p.stem not in ("metrics",)}
+    out = {}
+    for p in sorted(RESULTS.glob("*.json")):
+        if p.stem in ("metrics",):
+            continue
+        data = json.loads(p.read_text())
+        if isinstance(data, dict) and "summary" in data and "baseline" in data:
+            out[p.stem] = data
+    return out
 
 
 def ok(flag: bool) -> str:

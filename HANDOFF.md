@@ -12,13 +12,13 @@ Built 2026-09-24 in a cloud sandbox. It had PyPI and tesseract, but **no access 
 
 | Slice | State | Notes |
 |---|---|---|
-| 1 Walking skeleton | **Built, offline-verified** | config, schemas, taxonomy, gate (30/30 reference tests), 66 patterns, obfuscation (all §7.3 variants), scripts, ensemble + flags, llm.py (retries, fallback, breaker, RPM + daily budgets, dev cache), spotlight/grounding/redact, judge + prompt, neutralizer + verify, pipeline, CLI, API, Analyze tab, audit |
+| 1 Walking skeleton | **Built, offline-verified; live-verified** | config, schemas, taxonomy, gate (30/30 reference tests), 68 patterns (CR-005/CR-006 added, EX-002 ReDoS fixed), obfuscation (all §7.3 variants), scripts, ensemble + flags, llm.py (retries, fallback, breaker, RPM + daily budgets, dev cache), spotlight/grounding/redact, judge + prompt, neutralizer + verify, pipeline, CLI, API, Analyze tab, audit. **Live:** real C1 loads and scores correctly |
 | 2 Documents | **Built, offline-verified** | All 11 sources, Must + nearly all Should-tier hidden-content rules, limits, carrier generator (14 carriers). OCR tested for real with tesseract |
-| 3 Agents | **Built, offline-verified** | Sessions (sticky watch), ADK SentinelPlugin (ingress + egress), egress guard + alignment judge, output sanitizer, InboxPilot 4 modes, Agent demo tab. Full ADK run works offline with a scripted victim |
-| 4 Hardening | **Built, offline-verified** | Classifier bank with C2, `disagree`, R8a, uncovered scripts, breaker/degraded/budgets, checkpointed runner, verdict cache, chaos, admin auth, review queue + UI, feedback, TF-IDF exemplars, provenance wrapping, metrics, `firewall.cli prewarm` demo-cache warm. **Left for the Mac:** the §7.1 memory/latency rule (needs a real RSS measurement) |
-| 5 Proof | **Built, offline-verified (code + dev numbers)** | `eval/splits.py` (locked test split), `run_eval.py` (Run A + baselines c1/c2/llm/full, `--carriers`, `--perturb`, signal-recall), `datasets.py` (coverage check), `perturb.py`, `calibrate.py`, `report.py` → report.md/metrics.json/claim.md, `download_public.py` (**unverified**, see §6). `data/samples/core.jsonl`: 90 seeds, 40 benign, 20 Indian-language, 12 multi-turn — all coverage targets met. **Left for the Mac:** the LLM baselines and full run (need Gemini), public-set download, Evidence-tab charts |
-| 6 Red/blue | **Built, offline-verified** | operators, red_agent (operators + optional Gemini paraphraser), canary_harness, validator, blue_agent (cluster→propose→validate), loop.py, `/v1/redteam/run` + `/v1/patterns/approve`, Review-tab UI with live approve. **Left for the Mac:** real rounds on Ollama (the scripted victim only bites on email-forward payloads, so offline bypass count is 0) |
-| 7 Freeze | Not started | tune on dev, one test-split run (`--i-am-freezing`), record the demo (`docs/DEMO.md`) |
+| 3 Agents | **Built, offline-verified; live-verified** | Sessions (sticky watch), ADK SentinelPlugin (ingress + egress), egress guard + alignment judge, output sanitizer, InboxPilot 4 modes, Agent demo tab. **Live:** `pick_model()` Ollama/Gemini routing bug fixed (was sending Gemini model names to Ollama server); InboxPilot payload tuning: Gemini 3.5 Flash Lite resists all 3 POISONED_HTML variants 0/3 (its own RLHF hardening); scripted victim still works as the reliable demo path |
+| 4 Hardening | **Built, offline-verified; live-verified** | Classifier bank with C2, `disagree`, R8a, uncovered scripts, breaker/degraded/budgets, checkpointed runner, verdict cache, chaos, admin auth, review queue + UI, feedback, TF-IDF exemplars, provenance wrapping, metrics, `firewall.cli prewarm` demo-cache warm. **Live:** redteam smoke test plumbing verified with `max_seeds=5`; C_REVIEW/H_REVIEW recalibrated to 0.2/0.2. **Left for the Mac:** the §7.1 memory/latency rule (needs a real RSS measurement) |
+| 5 Proof | **Built, offline-verified; live-verified (dev split)** | `eval/splits.py` (locked test split), `run_eval.py` (Run A + baselines c1/c2/llm/full, `--carriers`, `--perturb`, signal-recall), `datasets.py` (coverage check), `perturb.py`, `calibrate.py`, `report.py` → report.md/metrics.json/claim.md, `download_public.py` (**unverified**, see §6). **Live:** `run_eval.py` checkpoint-envelope unwrap bug fixed; `report.py` crash on non-eval JSON files fixed; dev full-pipeline: **88% recall (72/82), 0% benign FPR**. Remaining 10 misses: type-4 tool misuse (2), type-6 context poisoning (2), type-7 multi-step (6) — accepted as inherent difficulty. **Left:** Evidence-tab charts, public-set download |
+| 6 Red/blue | **Built, offline-verified; live plumbing verified** | operators, red_agent (operators + optional Gemini paraphraser), canary_harness, validator, blue_agent (cluster→propose→validate), loop.py, `/v1/redteam/run` + `/v1/patterns/approve`, Review-tab UI with live approve. **Live:** smoke test passes with `max_seeds=5` on Gemini victim |
+| 7 Freeze | **In progress** | Dev-tuned to 88% recall / 0% FPR. Test-split run started, paused on quota (resumes after 2026-09-27T07:00Z Pacific). After: `eval.report`, record demo from `docs/DEMO.md` |
 
 ## 2. Verified here vs. needs a live check on your Mac
 
@@ -32,12 +32,10 @@ Built 2026-09-24 in a cloud sandbox. It had PyPI and tesseract, but **no access 
 | ADK plugin: tool result replaced, hijacked `send_email` blocked, sanitizer | Streamlit on your machine (it rendered and ran in the sandbox with Playwright) |
 | API: routes, validation, admin token, chaos only in DEV_MODE, file upload | torch wheel install: needs **macOS 14+** (`sw_vers -productVersion`). If older, tell Claude Code and it will pin an older torch |
 
-Deviations from SPEC are logged in `docs/DECISIONS.md` (21 entries dated 2026-09-24). Read them once.
+Deviations from SPEC are logged in `docs/DECISIONS.md` (27 entries as of 2026-09-26). Read them once.
 
-**Dev-split numbers from the sandbox (rules only — no C1/C2/judge, so a floor, not the real score):**
-recall 71% caught / 57% flagged by a real detector, **0% benign false positives**, P50 0.5 ms. Across all 14
-carriers: 98% caught, 0% benign FP. Expect recall to rise sharply once C1, C2 and the judge are on; that's
-exactly what the misses are (multi-step type-7, subtle type-4/5/6, one Telugu). `eval/results/report.md`.
+**Dev-split numbers (live, full pipeline with C1 + judge):**
+recall **88% (72/82)**, **0% benign FPR (0/40)**, P50 379 ms, 549 LLM calls/1k. Remaining 10 misses are type-4 tool misuse (2), type-6 context poisoning (2), type-7 multi-step (6) — accepted as inherent difficulty. Telugu items caught (better than predicted). Test-split run paused on quota, resumes 2026-09-27.
 
 ## 3. First run on your Mac (after SETUP.md steps 1–6)
 
