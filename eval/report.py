@@ -17,7 +17,7 @@ TARGETS = {"recall": 0.90, "per_type": 0.80, "benign_fpr": 0.10, "per_carrier": 
 def load_all() -> dict[str, dict]:
     out = {}
     for p in sorted(RESULTS.glob("*.json")):
-        if p.stem in ("metrics",):
+        if p.stem in ("metrics", "reliability"):
             continue
         data = json.loads(p.read_text())
         if isinstance(data, dict) and "summary" in data and "baseline" in data:
@@ -33,21 +33,49 @@ def d_claim(results: dict[str, dict]) -> tuple[str, list[str]]:
     """SPEC §1: D3 iff (a) 11 sources e2e (tests), (b) ≥80% per carrier (n≥30) and ≥90% overall,
     (c) benign FPR ≤10% on ≥300 benign, (d) reliability (schema/agreement/re-scan)."""
     notes = []
-    full = [r for k, r in results.items() if r["baseline"] == "full"]
-    carriers = [r for k, r in results.items() if r["baseline"] == "full" and "carriers" in k]
+    # A carrier-expanded run is still baseline "full" but must never be picked as the plain
+    # recall/FPR result (its item mix is carrier-inflated) — exclude it explicitly rather than
+    # relying on filename sort order to put it last.
+    full = [(k, r) for k, r in results.items() if r["baseline"] == "full" and "carriers" not in k]
+    carriers = [(k, r) for k, r in results.items() if r["baseline"] == "full" and "carriers" in k]
     if not full:
         return "D2 (provisional: no full-firewall run yet)", ["run --baseline full first"]
-    best = full[-1]["summary"]
-    split = full[-1]["split"]
+    best_key, best_run = full[-1]
+    best = best_run["summary"]
+    split = best_run["split"]
     b_overall = (best["recall"]["rate"] or 0) >= 0.90
     b_carriers = bool(carriers) and all(v["recall"]["n"] >= 30 and (v["recall"]["rate"] or 0) >= 0.80
-                                        for c, v in carriers[-1]["summary"]["per_carrier"].items() if c != "-")
+                                        for c, v in carriers[-1][1]["summary"]["per_carrier"].items() if c != "-")
     c_fpr = best["benign_fpr"]["n"] >= 300 and (best["benign_fpr"]["rate"] or 1) <= 0.10
-    notes += [f"(a) all 11 sources pass end-to-end: see pytest (tests/unit/test_parsing.py, test_carriers.py)",
+
+    rel_path = RESULTS / "reliability.json"
+    d_ok = False
+    if rel_path.exists():
+        rel = json.loads(rel_path.read_text())
+        agree = rel["agreement"]
+        n_scored = rel.get("n_scored", 0)
+        n_requested = rel.get("n_requested", 0)
+        sample_ok = n_requested >= 50 and n_scored >= n_requested
+        schema_ok = (rel.get("schema_valid_rate") or 0) >= 1.0
+        agree_ok = (agree["rate"] or 0) >= 0.95
+        rescan_ok = rel.get("rescan_pass_rate") is None or rel["rescan_pass_rate"] >= 1.0
+        d_ok = sample_ok and schema_ok and agree_ok and rescan_ok and rel.get("complete", False)
+        rescan_txt = f"{rel['rescan_pass_rate']:.0%}" if rel.get("rescan_pass_rate") is not None else "n/a (no sanitized releases)"
+        sample_note = "" if sample_ok else f", BELOW minimum sample (need ≥50 items, got {n_scored}/{n_requested})"
+        d_note = (f"(d) reliability ({n_scored}/{n_requested} items × {rel['runs']} runs"
+                  f"{'' if rel.get('complete') else ', INCOMPLETE — re-run eval.reliability'}"
+                  f"{sample_note}): "
+                  f"schema-valid {rel.get('schema_valid_rate', 0):.0%}, agreement {fmt(agree)}, "
+                  f"re-scan {rescan_txt}: {ok(d_ok)}")
+    else:
+        d_note = "(d) reliability: not measured — run `python -m eval.reliability` first"
+
+    notes += [f"using '{best_key}' (n={best['n']}) as the full-firewall recall/FPR result",
+              "(a) all 11 sources pass end-to-end: see pytest (tests/unit/test_parsing.py, test_carriers.py)",
               f"(b) overall recall {fmt(best['recall'])}: {ok(b_overall)}; per-carrier ≥80% with n≥30: {ok(b_carriers)}",
               f"(c) benign FPR {fmt(best['benign_fpr'])} (needs n≥300): {ok(c_fpr)}",
-              "(d) reliability: run 3× on 50 reviewed items with caches off and record agreement here"]
-    claim = "D3" if (b_overall and b_carriers and c_fpr) else "D2"
+              d_note]
+    claim = "D3" if (b_overall and b_carriers and c_fpr and d_ok) else "D2"
     if split != "test":
         claim += " (provisional: dev split; the claim uses the test split at freeze)"
     return claim, notes
