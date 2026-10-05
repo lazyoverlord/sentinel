@@ -121,6 +121,9 @@ with tab1:
         text = st.text_area("Input", key="text", height=160)
         source = st.selectbox("Source", ["user", "retrieved", "uploaded"], key="source")
         up = st.file_uploader("…or upload a file (PDF, DOCX, HTML, EML, JSON, XML, MD, code, image)")
+        _IMAGE_TYPES = {"image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp", "image/bmp"}
+        if up is not None and up.type in _IMAGE_TYPES:
+            st.caption("Experimental: image carrier support is not yet measured on the locked test split.")
         if st.button("Analyze", type="primary"):
             if up is not None:
                 body = {"file": {"filename": up.name, "content_type": up.type,
@@ -219,10 +222,14 @@ with tab3:
                             st.success(f"added; patterns now {out['count']} (v{out['patterns_version']})")
 
 with tab4:
-    m = api("GET", "/v1/metrics") or {}
-    st.subheader("Live metrics")
-    st.json(m)
+    from eval.self_assessment import build as build_self_assessment
     res = Path(__file__).resolve().parent.parent / "eval" / "results"
+    sa = build_self_assessment(res)
+    st.markdown(sa["markdown"])
+
+    m = api("GET", "/v1/metrics") or {}
+    with st.expander("Live metrics"):
+        st.json(m)
     for f in sorted(res.glob("*.json")):
         with st.expander(f"Eval result: {f.name}"):
             data = json.loads(f.read_text())

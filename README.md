@@ -49,6 +49,11 @@ uv run pytest -q                # ~525 tests, no network, nothing downloaded
 `docs/SPEC.md` (what to build) · `docs/BUILD_PLAN.md` (slices) · `docs/DECISIONS.md` (every deviation) ·
 `docs/DEMO.md` (8-minute script) · `CLAUDE.md` (Claude Code memory).
 
+## Self-assessment
+The frozen test-split evaluation result and D-claim are in `eval/results/claim.md`. Run
+`uv run python -m eval.report` to regenerate `eval/results/report.md` and `metrics.json`
+from the current result files. The Evidence tab in the UI renders the self-assessment block.
+
 ## Threat model & limits
 Adversaries: malicious user, third-party content author, multi-turn social engineer, firewall attacker,
 feedback poisoner (`docs/SPEC.md` §2). Out of scope: content-safety moderation, model-weight poisoning,
