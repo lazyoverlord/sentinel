@@ -44,8 +44,9 @@ def d_claim(results: dict[str, dict]) -> tuple[str, list[str]]:
     best = best_run["summary"]
     split = best_run["split"]
     b_overall = (best["recall"]["rate"] or 0) >= 0.90
-    b_carriers = bool(carriers) and all(v["recall"]["n"] >= 30 and (v["recall"]["rate"] or 0) >= 0.80
-                                        for c, v in carriers[-1][1]["summary"]["per_carrier"].items() if c != "-")
+    carriers_measured = bool(carriers) and carriers[-1][1]["summary"]["n"] > 0
+    b_carriers = carriers_measured and all(v["recall"]["n"] >= 30 and (v["recall"]["rate"] or 0) >= 0.80
+                                          for c, v in carriers[-1][1]["summary"]["per_carrier"].items() if c != "-")
     c_fpr = best["benign_fpr"]["n"] >= 300 and (best["benign_fpr"]["rate"] or 1) <= 0.10
 
     rel_path = RESULTS / "reliability.json"
@@ -65,14 +66,15 @@ def d_claim(results: dict[str, dict]) -> tuple[str, list[str]]:
         d_note = (f"(d) reliability ({n_scored}/{n_requested} items × {rel['runs']} runs"
                   f"{'' if rel.get('complete') else ', INCOMPLETE — re-run eval.reliability'}"
                   f"{sample_note}): "
-                  f"schema-valid {rel.get('schema_valid_rate', 0):.0%}, agreement {fmt(agree)}, "
+                  f"schema-valid {rel.get('schema_valid_rate', 0):.0%}, agreement {agree['k']}/{agree['n']} = {agree['rate']:.0%}, "
                   f"re-scan {rescan_txt}: {ok(d_ok)}")
     else:
         d_note = "(d) reliability: not measured — run `python -m eval.reliability` first"
 
     notes += [f"using '{best_key}' (n={best['n']}) as the full-firewall recall/FPR result",
               "(a) all 11 sources pass end-to-end: see pytest (tests/unit/test_parsing.py, test_carriers.py)",
-              f"(b) overall recall {fmt(best['recall'])}: {ok(b_overall)}; per-carrier ≥80% with n≥30: {ok(b_carriers)}",
+              f"(b) overall recall {fmt(best['recall'])}: {ok(b_overall)}; per-carrier ≥80% with n≥30: "
+              + (ok(b_carriers) if carriers_measured else "not measured"),
               f"(c) benign FPR {fmt(best['benign_fpr'])} (needs n≥300): {ok(c_fpr)}",
               d_note]
     claim = "D3" if (b_overall and b_carriers and c_fpr and d_ok) else "D2"

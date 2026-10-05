@@ -1,0 +1,14 @@
+{
+  "n_requested": 50,
+  "runs": 3,
+  "n_scored": 50,
+  "schema_valid_rate": 1.0,
+  "agreement": {
+    "k": 50,
+    "n": 50,
+    "rate": 1.0
+  },
+  "rescan_pass_rate": null,
+  "rescan_n": 0,
+  "complete": true
+}
