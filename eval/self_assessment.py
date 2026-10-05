@@ -66,6 +66,10 @@ def build(results_dir: Path) -> dict[str, Any]:
     llm_calls = summary.get("llm_calls_per_1k")
     misses = summary.get("misses", [])
 
+    # F evidence: attack types with at least one detection
+    types_detected = sum(1 for r in per_type.values() if r.get("k", 0) >= 1) if per_type else 0
+    types_detected_str = f"{types_detected}/9"
+
     recall_str = _fmt_rate(recall) if recall else "not generated"
     fpr_str = _fmt_rate(benign_fpr) if benign_fpr else "not generated"
     p50_str = f"{p50} ms" if p50 is not None else "not generated"
@@ -105,6 +109,13 @@ def build(results_dir: Path) -> dict[str, Any]:
     else:
         reliability_str = "not generated"
 
+    f_evidence = {
+        "types_detected": types_detected_str,
+        "observability": "firewall/observability/ (audit log, metrics), GET /v1/metrics, Evidence tab",
+        "trainability": "firewall/learning/ (feedback, exemplars, review queue), POST /v1/feedback/{audit_id}, Review tab, redteam/ hardening loop",
+        "fault_tolerance": "firewall/resilience/ (circuit breaker, budget, rate limiter, cache), LLM fallback chain in firewall/llm.py, chaos toggles",
+    }
+
     evidence = {
         "recall": recall_str,
         "benign_fpr": fpr_str,
@@ -113,10 +124,11 @@ def build(results_dir: Path) -> dict[str, Any]:
         "p50_ms": p50_str,
         "llm_calls_per_1k": llm_str,
         "reliability": reliability_str,
+        "f_evidence": f_evidence,
     }
 
     # --- Why not D3 ---
-    why_not_d3 = [n for n in claim_notes if "BELOW" in n or "not measured" in n]
+    why_not_d3 = [n for n in claim_notes if "BELOW" in n or "not measured" in n or "insufficient sample" in n]
 
     # --- Experimental ---
     experimental = ("Image carriers (PNG, OCR path) are experimental and were not measured "
@@ -135,7 +147,14 @@ def build(results_dir: Path) -> dict[str, Any]:
     md_lines = [
         f"## Self-assessment: {full_claim}",
         "",
-        "### Evidence",
+        "### F evidence (features)",
+        "",
+        f"- **Attack types with at least one detection on the locked test split:** {types_detected_str}",
+        f"- **Observability:** {f_evidence['observability']}",
+        f"- **Trainability:** {f_evidence['trainability']}",
+        f"- **Fault tolerance:** {f_evidence['fault_tolerance']}",
+        "",
+        "### D evidence (accuracy)",
         "",
         f"- **Overall recall:** {recall_str}",
         f"- **Benign FPR:** {fpr_str} (n={benign_fpr.get('n', '?')})" if benign_fpr else "- **Benign FPR:** not generated",

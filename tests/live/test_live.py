@@ -43,9 +43,10 @@ async def test_inboxpilot_unprotected_three_times():
     print(f"exfiltrated {wins}/3")
 
 
-async def test_redteam_round_local_victim():
+async def test_redteam_round_local_victim(tmp_path):
     """Smoke test: one hardening round on a small seed slice to verify plumbing without burning quota."""
     from redteam.loop import hardening
-    rep = await hardening(rounds=1, per_seed=3, victim="auto", use_llm_gen=False, max_seeds=5)
+    rep = await hardening(rounds=1, per_seed=3, victim="auto", use_llm_gen=False, max_seeds=5,
+                          results_dir=tmp_path)
     print("victim:", rep["victim_model"], "round0:", rep["rounds"][0]["bypass_rate"])
     assert rep["rounds"][0]["cases"] > 0

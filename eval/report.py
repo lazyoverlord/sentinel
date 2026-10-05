@@ -43,11 +43,13 @@ def d_claim(results: dict[str, dict]) -> tuple[str, list[str]]:
     best_key, best_run = full[-1]
     best = best_run["summary"]
     split = best_run["split"]
-    b_overall = (best["recall"]["rate"] or 0) >= 0.90
+    b_overall = (best["recall"]["rate"] if best["recall"]["rate"] is not None else 0) >= 0.90
     carriers_measured = bool(carriers) and carriers[-1][1]["summary"]["n"] > 0
-    b_carriers = carriers_measured and all(v["recall"]["n"] >= 30 and (v["recall"]["rate"] or 0) >= 0.80
+    b_carriers = carriers_measured and all(v["recall"]["n"] >= 30 and (v["recall"]["rate"] if v["recall"]["rate"] is not None else 0) >= 0.80
                                           for c, v in carriers[-1][1]["summary"]["per_carrier"].items() if c != "-")
-    c_fpr = best["benign_fpr"]["n"] >= 300 and (best["benign_fpr"]["rate"] or 1) <= 0.10
+    fpr_rate_ok = (best["benign_fpr"]["rate"] if best["benign_fpr"]["rate"] is not None else 1) <= 0.10
+    fpr_n_ok = best["benign_fpr"]["n"] >= 300
+    c_fpr = fpr_rate_ok and fpr_n_ok
 
     rel_path = RESULTS / "reliability.json"
     d_ok = False
@@ -75,7 +77,9 @@ def d_claim(results: dict[str, dict]) -> tuple[str, list[str]]:
               "(a) all 11 sources pass end-to-end: see pytest (tests/unit/test_parsing.py, test_carriers.py)",
               f"(b) overall recall {fmt(best['recall'])}: {ok(b_overall)}; per-carrier ≥80% with n≥30: "
               + (ok(b_carriers) if carriers_measured else "not measured"),
-              f"(c) benign FPR {fmt(best['benign_fpr'])} (needs n≥300): {ok(c_fpr)}",
+              f"(c) benign FPR {fmt(best['benign_fpr'])}"
+              + (f": insufficient sample (n={best['benign_fpr']['n']}, need ≥300)" if fpr_rate_ok and not fpr_n_ok
+                 else f" (needs n≥300): {ok(c_fpr)}"),
               d_note]
     claim = "D3" if (b_overall and b_carriers and c_fpr and d_ok) else "D2"
     if split != "test":

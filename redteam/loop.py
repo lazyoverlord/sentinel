@@ -60,7 +60,7 @@ async def run_round(fw: Any, victim_model: Any, seeds: list[dict], *, per_seed: 
 
 
 async def hardening(rounds: int, per_seed: int, victim: str, use_llm_gen: bool,
-                    max_seeds: int | None = None) -> dict:
+                    max_seeds: int | None = None, results_dir: Path | None = None) -> dict:
     from eval.splits import get_split, SAMPLES
     from demo_agent.inboxpilot import pick_model
     from firewall.pipeline import Firewall
@@ -90,8 +90,9 @@ async def hardening(rounds: int, per_seed: int, victim: str, use_llm_gen: bool,
         report["rounds"].append({k: v for k, v in res.items() if k != "bypasses"} | {"n_bypasses": len(res["bypasses"])})
         report["approved_candidates"] += [c for c in candidates if c["valid"]]
     fw.close()
-    RESULTS.mkdir(parents=True, exist_ok=True)
-    (RESULTS / "hardening.json").write_text(json.dumps(report, indent=1, ensure_ascii=False))
+    out_dir = results_dir or RESULTS
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "hardening.json").write_text(json.dumps(report, indent=1, ensure_ascii=False))
     return report
 
 

@@ -16,7 +16,7 @@ D2
 - using 'full_test' (n=80) as the full-firewall recall/FPR result
 - (a) all 11 sources pass end-to-end: see pytest
 - (b) overall recall 46/54 = 85% (95% CI 73%–92%): BELOW target; per-carrier ≥80% with n≥30: not measured
-- (c) benign FPR 0/26 = 0% (95% CI 0%–13%) (needs n≥300): BELOW target
+- (c) benign FPR 0/26 = 0% (95% CI 0%–13%): insufficient sample (n=26, need ≥300)
 - (d) reliability (50/50 items × 3 runs): schema-valid 100%, agreement 50/50 = 100%: meets
 """
 
@@ -74,8 +74,11 @@ def test_complete_files(results_dir: Path):
     assert "low n" in sa["evidence"]["per_type"][1]["flags"]  # type 4 n=4
     assert len(sa["why_not_d3"]) == 2
     assert any("BELOW" in w for w in sa["why_not_d3"])
+    assert any("insufficient sample" in w for w in sa["why_not_d3"])
     assert "Experimental" in sa["markdown"]
     assert "seed-t7-05" in sa["markdown"]
+    assert "F evidence" in sa["markdown"]
+    assert "D evidence" in sa["markdown"]
 
 
 def test_missing_files(tmp_path: Path):
@@ -88,6 +91,7 @@ def test_missing_files(tmp_path: Path):
     assert sa["evidence"]["p50_ms"] == "not generated"
     assert sa["evidence"]["reliability"] == "not generated"
     assert sa["evidence"]["per_type"] == []
+    assert sa["evidence"]["f_evidence"]["types_detected"] == "0/9"
 
 
 def test_rescan_not_exercised(results_dir: Path):
@@ -109,3 +113,9 @@ def test_low_n_flagged(results_dir: Path):
     assert "low n" in types["4"]["flags"]  # n=4
     assert "low n" in types["7"]["flags"]  # n=5
     assert "low n" not in types["1"]["flags"]  # n=20
+
+
+def test_types_detected_count(results_dir: Path):
+    sa = build(results_dir)
+    assert sa["evidence"]["f_evidence"]["types_detected"] == "3/9"
+    assert "3/9" in sa["markdown"]

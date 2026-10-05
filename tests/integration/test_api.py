@@ -86,9 +86,11 @@ def test_inboxpilot_endpoint(settings):
         assert out["victim_model"].startswith("scripted") and not out["exfiltrated"]
 
 
-def test_redteam_and_pattern_approve(settings, tmp_path):
+def test_redteam_and_pattern_approve(settings, tmp_path, monkeypatch):
     import shutil
+    import redteam.loop as _loop
     from firewall.config import ROOT
+    monkeypatch.setattr(_loop, "RESULTS", tmp_path)
     pj = tmp_path / "patterns.json"
     shutil.copy(ROOT / "data" / "patterns.json", pj)
     s = settings.model_copy(update={"PATTERNS_PATH": pj})
