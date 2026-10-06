@@ -233,7 +233,10 @@ with tab4:
     for f in sorted(res.glob("*.json")):
         with st.expander(f"Eval result: {f.name}"):
             data = json.loads(f.read_text())
-            st.json({k: v for k, v in data.items() if k != "rows"})
+            if isinstance(data, dict):
+                st.json({k: v for k, v in data.items() if k != "rows"})
+            else:
+                st.json(data)
     if health.get("dev_mode"):
         st.subheader("Chaos (DEV_MODE only)")
         c = st.columns(3)
