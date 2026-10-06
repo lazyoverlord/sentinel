@@ -14,8 +14,8 @@ from typing import Any
 
 from firewall import gate as G
 from firewall.agents.judge import PROMPT_VERSION, judge
-from firewall.agents.neutralizer import (PLACEHOLDER, Neutralized, neutralize, residual_fraction,
-                                         visible_text)
+from firewall.agents.neutralizer import (PLACEHOLDER, STRIP_MARKER, Neutralized, neutralize,
+                                         residual_fraction, visible_text)
 from firewall.config import Settings, get_settings
 from firewall.detection.ensemble import VISIBLE, Ensemble, signals
 from firewall.detection.heuristics import HeuristicEngine
@@ -96,6 +96,9 @@ class Firewall:
     def rescan_clean(self, text: str, source: str) -> bool:
         """Verify step (SPEC §8): expand + detect + R1–R4 + thresholds on the output."""
         if not text:
+            return True
+        text = text.replace(STRIP_MARKER, "")
+        if not text.strip():
             return True
         seg = Segment(id="S1", text=text, channel="visible", location="rescan")
         pc = ParsedContent(format="text", source_type=source, segments=[seg])

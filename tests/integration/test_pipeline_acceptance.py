@@ -40,7 +40,7 @@ async def test_base64_in_question_sanitized(make_fw):
             "Could you tell me whether it is safe to show them, and what the usual turnaround is?")
     r = await fw.analyze_text(text, "user")
     assert r.path["rule"] == "R2" and r.action == "allow_sanitized", r.reasoning_chain
-    assert b64 not in r.clean_content and "[removed: suspected prompt injection]" in r.clean_content
+    assert b64 not in r.clean_content and "[...]" in r.clean_content
     assert 8 in {t["id"] for t in r.attack_types}
     assert r.path["verify_passed"] is True
 
@@ -110,6 +110,7 @@ async def test_row5_unicode_tags(make_fw):
     hidden = "".join(chr(0xE0000 + ord(c)) for c in PAYLOAD)
     r = await fw.analyze_text("What's the weather in Mumbai?" + hidden, "user")
     assert r.path["rule"] == "R1" and r.action == "allow_sanitized"
+    assert r.path["verify_passed"] is True
     assert r.clean_content.strip().startswith("What's the weather in Mumbai?")
     assert not any(0xE0000 <= ord(c) <= 0xE007F for c in r.clean_content)
 

@@ -10,7 +10,8 @@ from firewall.llm import FakeLLMClient
 from firewall.pipeline import Firewall
 
 _ATTACKY = re.compile(r"ignore (all )?(previous|prior)|system prompt|you are now|dan\b|disregard|"
-                      r"forward .* to .*@|reviewer|classify this|pichle|निर्देश", re.I)
+                      r"forward .* to .*@|reviewer|classify this|pichle|निर्देश|"
+                      r"prompt injection\b", re.I)
 
 
 def fake_c1(text: str) -> float:

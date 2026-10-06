@@ -11,7 +11,7 @@ from firewall.detection.ensemble import VISIBLE
 from firewall.detection.obfuscation import strip_invisible
 from firewall.schemas import EnsembleResult, ParsedContent
 
-STRIP_MARKER = "[removed: suspected prompt injection]"
+STRIP_MARKER = "[...]"
 PLACEHOLDER = "[External content withheld: suspected prompt injection · audit {audit_id}]"
 HOLD_PLACEHOLDER = "[Content held for human review · audit {audit_id}]"
 SHOW_MAX = 2000
