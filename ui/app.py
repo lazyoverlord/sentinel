@@ -179,7 +179,10 @@ with tab3:
     q = api("GET", "/v1/review/queue") or []
     if not q:
         st.caption("Nothing pending.")
-    for it in q:
+    _REVIEW_PAGE = 20
+    if len(q) > _REVIEW_PAGE:
+        st.caption(f"Showing {_REVIEW_PAGE} of {len(q)} items.")
+    for it in q[:_REVIEW_PAGE]:
         with st.container(border=True):
             st.markdown(f"**{it['audit_id']}** · {it.get('source')} · {it.get('verdict')} · rule {it.get('rule')}")
             st.code(it.get("summary", ""))
@@ -222,34 +225,37 @@ with tab3:
                             st.success(f"added; patterns now {out['count']} (v{out['patterns_version']})")
 
 with tab4:
-    from eval.self_assessment import build as build_self_assessment
-    res = Path(__file__).resolve().parent.parent / "eval" / "results"
-    sa = build_self_assessment(res)
-    st.markdown(sa["markdown"])
+    try:
+        from eval.self_assessment import build as build_self_assessment
+        res = Path(__file__).resolve().parent.parent / "eval" / "results"
+        sa = build_self_assessment(res)
+        st.markdown(sa["markdown"])
 
-    m = api("GET", "/v1/metrics") or {}
-    with st.expander("Live metrics"):
-        st.json(m)
-    for f in sorted(res.glob("*.json")):
-        with st.expander(f"Eval result: {f.name}"):
-            data = json.loads(f.read_text())
-            if isinstance(data, dict):
-                st.json({k: v for k, v in data.items() if k != "rows"})
-            else:
-                st.json(data)
-    if health.get("dev_mode"):
-        st.subheader("Chaos (DEV_MODE only)")
-        c = st.columns(3)
-        if c[0].button("LLM down"):
-            api("POST", "/v1/chaos", json={"CHAOS_LLM_DOWN": True}, headers=ADMIN)
-            st.rerun()
-        if c[1].button("C1 down"):
-            api("POST", "/v1/chaos", json={"CHAOS_C1_DOWN": True}, headers=ADMIN)
-            st.rerun()
-        if c[2].button("Reset chaos"):
-            api("POST", "/v1/chaos", json={"CHAOS_LLM_DOWN": False, "CHAOS_C1_DOWN": False, "CHAOS_C2_DOWN": False,
-                                           "CHAOS_LATENCY_MS": 0}, headers=ADMIN)
-            st.rerun()
+        m = api("GET", "/v1/metrics") or {}
+        with st.expander("Live metrics"):
+            st.json(m)
+        for f in sorted(res.glob("*.json")):
+            with st.expander(f"Eval result: {f.name}"):
+                data = json.loads(f.read_text())
+                if isinstance(data, dict):
+                    st.json({k: v for k, v in data.items() if k != "rows"})
+                else:
+                    st.json(data)
+        if health.get("dev_mode"):
+            st.subheader("Chaos (DEV_MODE only)")
+            c = st.columns(3)
+            if c[0].button("LLM down"):
+                api("POST", "/v1/chaos", json={"CHAOS_LLM_DOWN": True}, headers=ADMIN)
+                st.rerun()
+            if c[1].button("C1 down"):
+                api("POST", "/v1/chaos", json={"CHAOS_C1_DOWN": True}, headers=ADMIN)
+                st.rerun()
+            if c[2].button("Reset chaos"):
+                api("POST", "/v1/chaos", json={"CHAOS_LLM_DOWN": False, "CHAOS_C1_DOWN": False, "CHAOS_C2_DOWN": False,
+                                               "CHAOS_LATENCY_MS": 0}, headers=ADMIN)
+                st.rerun()
+    except Exception as e:
+        st.exception(e)
 
 if health.get("built_with_llama"):
     st.caption("Built with Llama")
