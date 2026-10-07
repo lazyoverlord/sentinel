@@ -6,6 +6,7 @@ data/audit/
 data/cache/
 data/public/
 data/feedback/*.jsonl
+data/feedback_eval/
 data/redteam/runs/
 eval/results/runs/
 .pytest_cache/

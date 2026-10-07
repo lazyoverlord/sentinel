@@ -22,7 +22,7 @@ _LABELS = {"benign", "attack", None}
 class ReviewQueue:
     def __init__(self, settings: Any) -> None:
         self.settings = settings
-        self.path = Path(settings.feedback_dir) / "review_queue.jsonl"
+        self.path = Path(settings.review_queue_dir) / "review_queue.jsonl"
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
         self._items: dict[str, dict] = {}          # audit_id -> latest state, in first-seen order

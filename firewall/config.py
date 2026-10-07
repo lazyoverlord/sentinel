@@ -142,6 +142,7 @@ class Settings(BaseSettings):
     # ---- observability ----
     LOG_RAW_CONTENT: bool = False
     AUDIT_RETENTION_DAYS: int = 30
+    REVIEW_QUEUE_DIR: Path | None = None
 
     # ---- egress (SPEC §15.2) ----
     SENSITIVE_TOOLS: StrList = ["send_email", "transfer_funds", "delete_file", "execute_code"]
@@ -224,6 +225,10 @@ class Settings(BaseSettings):
     @property
     def feedback_dir(self) -> Path:
         return self.DATA_DIR / "feedback"
+
+    @property
+    def review_queue_dir(self) -> Path:
+        return self.REVIEW_QUEUE_DIR if self.REVIEW_QUEUE_DIR is not None else self.feedback_dir
 
     @property
     def cache_dir(self) -> Path:

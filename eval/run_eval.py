@@ -162,7 +162,8 @@ def _unwrap_results(records: list[dict]) -> list[dict]:
 async def run_full(items: list[dict], run_id: str) -> tuple[list[dict], dict]:
     from firewall.pipeline import Firewall
     from firewall.resilience.batch_runner import CheckpointedRunner
-    s = get_settings().model_copy(update={"VERDICT_CACHE": False})
+    s = get_settings().model_copy(update={"VERDICT_CACHE": False,
+                                          "REVIEW_QUEUE_DIR": ROOT / "data" / "feedback_eval"})
     fw = Firewall(s)
     await fw.startup()
 

@@ -64,7 +64,8 @@ async def hardening(rounds: int, per_seed: int, victim: str, use_llm_gen: bool,
     from eval.splits import get_split, SAMPLES
     from demo_agent.inboxpilot import pick_model
     from firewall.pipeline import Firewall
-    s = get_settings()
+    s = get_settings().model_copy(update={
+        "REVIEW_QUEUE_DIR": ROOT / "data" / "feedback_eval"})
     fw = Firewall(s)
     await fw.startup()
     victim_model, label = await pick_model(fw, victim)
