@@ -159,16 +159,19 @@ def _unwrap_results(records: list[dict]) -> list[dict]:
     return [rec["result"] for rec in records if rec.get("status") == "ok" and "result" in rec]
 
 
-async def run_full(items: list[dict], run_id: str) -> tuple[list[dict], dict]:
+async def run_full(items: list[dict], run_id: str, *, dev_cache: bool = True) -> tuple[list[dict], dict]:
     from firewall.pipeline import Firewall
     from firewall.resilience.batch_runner import CheckpointedRunner
-    s = get_settings().model_copy(update={"VERDICT_CACHE": False,
+    s = get_settings().model_copy(update={"VERDICT_CACHE": False, "DEV_CACHE": dev_cache,
                                           "REVIEW_QUEUE_DIR": ROOT / "data" / "feedback_eval"})
     fw = Firewall(s)
     await fw.startup()
 
     async def one(it: dict) -> dict:
+        # calls: entries into generate_structured (including dev-cache hits)
+        # api_calls: actual Gemini API calls (cache hits excluded)
         calls0 = fw.llm.stats().get("calls", 0)
+        api0 = fw.llm.stats().get("api_calls", 0)
         if "turns" in it:
             sid = f"eval-{it['id']}-{time.time_ns()}"
             for tx in it["turns"]:
@@ -178,7 +181,9 @@ async def run_full(items: list[dict], run_id: str) -> tuple[list[dict], dict]:
         return {**_meta(it), "action": r.action, "verdict": r.verdict, "rule": r.path["rule"],
                 "types_found": [t["id"] for t in r.attack_types], "caught": r.action in STOPPED,
                 "fp": r.action in FP_ACTIONS, "hold": r.action == "hold_for_review",
-                "ms": r.latency_ms.get("total"), "llm_calls": fw.llm.stats().get("calls", 0) - calls0,
+                "ms": r.latency_ms.get("total"),
+                "llm_calls": fw.llm.stats().get("calls", 0) - calls0,
+                "real_llm_calls": fw.llm.stats().get("api_calls", 0) - api0,
                 "model": r.path.get("model"), "verify_passed": r.path.get("verify_passed")}
 
     runner = CheckpointedRunner(RESULTS / "runs", run_id)

@@ -104,8 +104,10 @@ def build(results_dir: Path) -> dict[str, Any]:
         else:
             rescan_str = "not generated"
 
+        cache_independent = reliability.get("dev_cache") is False
+        cache_label = "" if cache_independent else " (cache-assisted, not judge stability)"
         reliability_str = (f"{n_scored}/{n_requested} items × {runs} runs: "
-                           f"schema-valid {schema_str}, agreement {agree_str}, re-scan {rescan_str}")
+                           f"schema-valid {schema_str}, agreement {agree_str}{cache_label}, re-scan {rescan_str}")
     else:
         reliability_str = "not generated"
 

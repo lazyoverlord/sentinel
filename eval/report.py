@@ -65,10 +65,12 @@ def d_claim(results: dict[str, dict]) -> tuple[str, list[str]]:
         d_ok = sample_ok and schema_ok and agree_ok and rescan_ok and rel.get("complete", False)
         rescan_txt = f"{rel['rescan_pass_rate']:.0%}" if rel.get("rescan_pass_rate") is not None else "n/a (no sanitized releases)"
         sample_note = "" if sample_ok else f", BELOW minimum sample (need ≥50 items, got {n_scored}/{n_requested})"
+        cache_independent = rel.get("dev_cache") is False
+        cache_label = "" if cache_independent else " (cache-assisted, not judge stability)"
         d_note = (f"(d) reliability ({n_scored}/{n_requested} items × {rel['runs']} runs"
                   f"{'' if rel.get('complete') else ', INCOMPLETE — re-run eval.reliability'}"
                   f"{sample_note}): "
-                  f"schema-valid {rel.get('schema_valid_rate', 0):.0%}, agreement {agree['k']}/{agree['n']} = {agree['rate']:.0%}, "
+                  f"schema-valid {rel.get('schema_valid_rate', 0):.0%}, agreement {agree['k']}/{agree['n']} = {agree['rate']:.0%}{cache_label}, "
                   f"re-scan {rescan_txt}: {ok(d_ok)}")
     else:
         d_note = "(d) reliability: not measured — run `python -m eval.reliability` first"

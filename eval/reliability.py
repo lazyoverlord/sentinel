@@ -1,5 +1,5 @@
 """Reliability check (SPEC §1(d), §17): run the same fixed set of items through the full firewall
-3 times, caches off, and measure:
+3 times, both verdict cache and dev cache off (independent judge calls each run), and measure:
   - verdict agreement: fraction of items whose verdict was identical across all runs (target >= 95%)
   - schema-valid rate: fraction of calls that returned a schema-valid response, not an error (target 100%)
   - re-scan pass rate: of items released as allow_sanitized, the fraction whose output passed the
@@ -39,7 +39,7 @@ async def main_async(split: str, files: list[str] | None, n: int, runs: int, all
 
     passes: list[dict[str, dict]] = []
     for r in range(runs):
-        rows, status = await run_full(items, run_id=f"reliability_r{r + 1}")
+        rows, status = await run_full(items, run_id=f"reliability_r{r + 1}", dev_cache=False)
         passes.append({row["id"]: row for row in rows})
         if status["status"] != "completed":
             print(f"run {r + 1}/{runs}: {status['status']} ({status.get('error')}), "
@@ -64,11 +64,14 @@ async def main_async(split: str, files: list[str] | None, n: int, runs: int, all
                 verify_total += 1
                 verify_passed += int(bool(row.get("verify_passed")))
 
+    real_llm_total = sum(p[iid].get("real_llm_calls", 0) for p in passes for iid in common_ids)
     n_scored = len(common_ids)
     out = {
         "n_requested": n,
         "runs": runs,
         "n_scored": n_scored,
+        "dev_cache": False,
+        "real_llm_calls": real_llm_total,
         "schema_valid_rate": round(finished_calls / requested_calls, 4) if requested_calls else None,
         "agreement": {"k": unanimous, "n": n_scored,
                       "rate": round(unanimous / n_scored, 4) if n_scored else None},
