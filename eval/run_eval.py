@@ -241,18 +241,69 @@ def load_items(split: str, files: list[str] | None, allow_test: bool) -> list[di
     return items
 
 
+def summarize_benign_fpr(rows: list[dict], baseline: str) -> dict:
+    """FPR-only summary for benign-only public datasets."""
+    ben = [r for r in rows if r["label"] == "benign"]
+    n = len(ben)
+    fp_count = sum(r["fp"] for r in ben)
+    fpr = rate(fp_count, n)
+    lat = sorted(r["ms"] for r in ben if r.get("ms") is not None)
+    score_key = "score" if baseline in ("c1", "c2") else None
+    top_fp: list[dict] = []
+    if score_key:
+        scored = sorted(ben, key=lambda r: r.get(score_key, 0), reverse=True)
+    else:
+        scored = sorted(ben, key=lambda r: 1 if r.get("fp") else 0, reverse=True)
+    for r in scored[:10]:
+        entry = {"id": r["id"]}
+        if score_key:
+            entry["score"] = r.get(score_key)
+        entry["fp"] = r.get("fp", False)
+        if "route" in r:
+            entry["route"] = r["route"]
+        top_fp.append(entry)
+    return {"n": n, "fpr": fpr, "p50_ms": lat[len(lat) // 2] if lat else None,
+            "top_scoring": top_fp}
+
+
+GEMINI_BASELINES = {"llm", "full"}
+NO_GEMINI_BASELINES = {"A", "c1", "c2"}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--split", default="dev", choices=["dev", "test", "all"])
     ap.add_argument("--run", default="A", choices=["A"], help="kept for compatibility; Run A is the default")
     ap.add_argument("--baseline", choices=["c1", "c2", "llm", "full"])
     ap.add_argument("--file", action="append")
+    ap.add_argument("--items", type=str, help="path to a jsonl of {id,text,label,...}; output to --tag file")
+    ap.add_argument("--tag", type=str, help="output file name (eval/results/{tag}.json) and run_id prefix")
+    ap.add_argument("--allow-gemini", action="store_true", help="allow llm/full baselines with --items")
     ap.add_argument("--carriers", action="store_true")
     ap.add_argument("--perturb", action="store_true")
     ap.add_argument("--limit", type=int)
     ap.add_argument("--i-am-freezing", action="store_true", help="unlock the test split (Slice 7 only)")
     a = ap.parse_args()
-    items = load_items(a.split, a.file, a.i_am_freezing)
+
+    if a.items and a.i_am_freezing:
+        ap.error("--items and --i-am-freezing are mutually exclusive")
+
+    name = a.baseline or "A"
+
+    if a.items:
+        if not a.tag:
+            ap.error("--items requires --tag")
+        if name in GEMINI_BASELINES and not a.allow_gemini:
+            ap.error(f"--baseline {name} with --items requires --allow-gemini (spends Gemini quota)")
+        p = Path(a.items)
+        if not p.exists():
+            ap.error(f"--items file not found: {p}")
+        items = [json.loads(line) for line in p.read_text().splitlines() if line.strip()]
+        tag = a.tag
+    else:
+        items = load_items(a.split, a.file, a.i_am_freezing)
+        tag = f"{name}_{a.split}" + ("_carriers" if a.carriers else "") + ("_perturb" if a.perturb else "")
+
     if a.perturb:
         from eval.perturb import perturb_items
         items += perturb_items([i for i in items if i["label"] == "attack"])
@@ -260,9 +311,10 @@ def main() -> None:
         items = expand_carriers(items)
     if a.limit:
         items = items[: a.limit]
+
     RESULTS.mkdir(parents=True, exist_ok=True)
-    name = a.baseline or "A"
-    tag = f"{name}_{a.split}" + ("_carriers" if a.carriers else "") + ("_perturb" if a.perturb else "")
+    path = RESULTS / f"{tag}.json"
+
     status = None
     if name == "A":
         rows = run_a(items)
@@ -272,16 +324,30 @@ def main() -> None:
         rows, status = asyncio.run(run_llm_only(items, f"{tag}-{time.strftime('%Y%m%d')}"))
     else:
         rows, status = asyncio.run(run_full(items, f"{tag}-{time.strftime('%Y%m%d')}"))
-    out = {"name": tag, "baseline": name, "split": a.split, "status": status,
-           "classifiers": get_settings().CLASSIFIERS, "summary": summarize(rows), "rows": rows}
-    path = RESULTS / f"{tag}.json"
+
+    sm = summarize(rows)
+    out = {"name": tag, "baseline": name, "split": a.split if not a.items else "custom",
+           "items_file": a.items if a.items else None,
+           "status": status, "classifiers": get_settings().CLASSIFIERS, "summary": sm, "rows": rows}
+
+    benign_only = all(r["label"] == "benign" for r in rows)
+    if benign_only:
+        out["benign_fpr_detail"] = summarize_benign_fpr(rows, name)
+
     path.write_text(json.dumps(out, indent=1, ensure_ascii=False))
-    sm = out["summary"]
     if "signal_recall" in sm:
         print(f"signal recall (detector flagged, excludes mandatory R5 review): {fmt(sm['signal_recall'])}; "
               f"benign flagged by a signal: {fmt(sm['benign_signal_rate'])}")
     print(f"{tag}: recall {fmt(sm['recall'])} · benign FPR {fmt(sm['benign_fpr'])} · P50 {sm['p50_ms']} ms · "
           f"LLM calls/1k {sm['llm_calls_per_1k']}")
+    if benign_only and "benign_fpr_detail" in out:
+        d = out["benign_fpr_detail"]
+        print(f"  FPR detail: {fmt(d['fpr'])} on {d['n']} benign items")
+        if d["top_scoring"]:
+            print(f"  Top {len(d['top_scoring'])} highest-scoring:")
+            for e in d["top_scoring"]:
+                extra = f" score={e['score']:.4f}" if "score" in e else ""
+                print(f"    {e['id']}{extra} fp={e['fp']}")
     if status:
         print("run status:", status.get("status"), "resume after:", status.get("resume_after"))
     print(f"written {path}")
