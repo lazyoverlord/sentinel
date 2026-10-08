@@ -62,6 +62,16 @@ def _pool_benign_fpr(test_run: dict, results: dict[str, dict]) -> dict:
             "non_allow_rate": rate(total_non_allow, total_n)}
 
 
+def _rescan_from_test_run(test_run: dict) -> tuple[float | None, int, str]:
+    """Compute rescan pass rate from allow_sanitized rows in the frozen test run."""
+    sanitized = [r for r in test_run.get("rows", [])
+                 if r.get("action") == "allow_sanitized" and "verify_passed" in r]
+    if not sanitized:
+        return None, 0, ""
+    passed = sum(bool(r["verify_passed"]) for r in sanitized)
+    return round(passed / len(sanitized), 4), len(sanitized), " (from frozen test run)"
+
+
 def d_claim(results: dict[str, dict], results_dir: Path | None = None) -> tuple[str, list[str], dict]:
     """SPEC §1: D3 iff (a) 11 sources e2e (tests), (b) ≥80% per carrier (n≥30) and ≥90% overall,
     (c) benign FPR ≤10% on ≥300 pooled benign, (d) reliability (schema/agreement/re-scan).
@@ -119,33 +129,49 @@ def d_claim(results: dict[str, dict], results_dir: Path | None = None) -> tuple[
     gates["a"] = {"met": None, "value": "see pytest", "requirement": "all 11 source types pass"}
 
     # (d) reliability
+    D_REQ = "100% schema, ≥ 95% agree, 100% rescan"
     rel_path = (results_dir or RESULTS) / "reliability.json"
-    d_ok = False
     if rel_path.exists():
         rel = json.loads(rel_path.read_text())
         agree = rel["agreement"]
         n_scored = rel.get("n_scored", 0)
         n_requested = rel.get("n_requested", 0)
-        sample_ok = n_requested >= 50 and n_scored >= n_requested
+        complete = rel.get("complete", False)
+        real_calls = rel.get("real_llm_calls", 0)
+        sample_ok = complete and n_scored >= 50 and real_calls > 0
         schema_ok = (rel.get("schema_valid_rate") or 0) >= 1.0
-        agree_ok = (agree["rate"] or 0) >= 0.95
-        rescan_ok = rel.get("rescan_pass_rate") is None or rel["rescan_pass_rate"] >= 1.0
-        d_ok = sample_ok and schema_ok and agree_ok and rescan_ok and rel.get("complete", False)
-        rescan_txt = f"{rel['rescan_pass_rate']:.0%}" if rel.get("rescan_pass_rate") is not None else "n/a"
-        sample_note = "" if sample_ok else f", BELOW minimum sample (need ≥50 items, got {n_scored}/{n_requested})"
+        agree_ok = (agree.get("rate") or 0) >= 0.95
+
+        rescan_rate = rel.get("rescan_pass_rate")
+        rescan_n = rel.get("rescan_n", 0)
+        rescan_src = ""
+        if rescan_n == 0 and rescan_rate is None:
+            rescan_rate, rescan_n, rescan_src = _rescan_from_test_run(best_run)
+        rescan_ok = rescan_rate is not None and rescan_rate >= 1.0
+        rescan_txt = f"{rescan_rate:.0%} ({rescan_n})" if rescan_rate is not None else "unmeasured"
+
+        d_ok = sample_ok and schema_ok and agree_ok and rescan_ok
         cache_independent = rel.get("dev_cache") is False
         cache_label = "" if cache_independent else " (cache-assisted, not judge stability)"
-        d_note = (f"(d) reliability ({n_scored}/{n_requested} items × {rel['runs']} runs"
-                  f"{'' if rel.get('complete') else ', INCOMPLETE — re-run eval.reliability'}"
-                  f"{sample_note}): "
-                  f"schema-valid {rel.get('schema_valid_rate', 0):.0%}, agreement {agree['k']}/{agree['n']} = {agree['rate']:.0%}{cache_label}, "
-                  f"re-scan {rescan_txt}: {ok(d_ok)}")
-        gates["d"] = {"met": d_ok, "value": f"schema {rel.get('schema_valid_rate', 0):.0%}, "
-                      f"agree {agree['rate']:.0%}{cache_label}, rescan {rescan_txt}",
-                      "requirement": "100% schema, ≥ 95% agree, 100% rescan"}
+        problems = []
+        if not complete:
+            problems.append("INCOMPLETE — re-run eval.reliability")
+        if real_calls == 0:
+            problems.append("real_llm_calls=0 (stale cache)")
+        if n_scored < 50:
+            problems.append(f"n_scored={n_scored} < 50")
+        problem_txt = f", {'; '.join(problems)}" if problems else ""
+        d_note = (f"(d) reliability ({n_scored}/{n_requested} items × {rel['runs']} runs{problem_txt}): "
+                  f"schema-valid {rel.get('schema_valid_rate', 0):.0%}, "
+                  f"agreement {agree['k']}/{agree['n']} = {agree.get('rate', 0):.0%}{cache_label}, "
+                  f"re-scan {rescan_txt}{rescan_src}: {ok(d_ok)}")
+        gates["d"] = {"met": d_ok if sample_ok else None,
+                      "value": f"schema {rel.get('schema_valid_rate', 0):.0%}, "
+                      f"agree {agree.get('rate', 0):.0%}{cache_label}, rescan {rescan_txt}",
+                      "requirement": D_REQ}
     else:
         d_note = "(d) reliability: not measured — run `python -m eval.reliability` first"
-        gates["d"] = {"met": None, "value": "not run", "requirement": "100% schema, ≥ 95% agree, 100% rescan"}
+        gates["d"] = {"met": None, "value": "not run", "requirement": D_REQ}
 
     notes += [f"using '{best_key}' (n={best['n']}, split={split}) as the test-split recall result",
               "(a) all 11 sources pass end-to-end: see pytest (tests/unit/test_parsing.py, test_carriers.py)",

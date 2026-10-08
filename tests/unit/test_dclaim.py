@@ -125,6 +125,75 @@ class TestPooledBenignFPR:
         assert pool["n"] == 2  # test + notinject_full, not the A run
 
 
+class TestReliabilityGate:
+    """Gate (d) validation: stale/incomplete/valid reliability.json."""
+
+    def _make_results_with_reliability(self, tmp_path, rel_data):
+        results_dir = tmp_path / "results"
+        results_dir.mkdir(exist_ok=True)
+        if rel_data is not None:
+            (results_dir / "reliability.json").write_text(json.dumps(rel_data))
+        attacks = [_attack_row(f"a{i}") for i in range(50)]
+        benign = [_benign_row(f"b{i}") for i in range(30)]
+        sanitized = [{"id": f"s{i}", "label": "attack", "caught": True, "fp": False,
+                      "action": "allow_sanitized", "verdict": "injection",
+                      "verify_passed": True} for i in range(5)]
+        test_run = _make_run(split="test", baseline="full",
+                             rows=attacks + benign + sanitized,
+                             recall=_rate(50, 55))
+        (results_dir / "full_test.json").write_text(json.dumps(test_run))
+        return {"full_test": test_run}, results_dir
+
+    def test_stale_zero_real_calls_is_pending(self, tmp_path):
+        from eval.report import d_claim
+        rel = {"n_requested": 50, "runs": 3, "n_scored": 50, "dev_cache": False,
+               "real_llm_calls": 0, "schema_valid_rate": 1.0,
+               "agreement": {"k": 50, "n": 50, "rate": 1.0},
+               "rescan_pass_rate": None, "rescan_n": 0, "complete": True}
+        results, rdir = self._make_results_with_reliability(tmp_path, rel)
+        _, notes, gates = d_claim(results, rdir)
+        assert gates["d"]["met"] is None
+        assert any("real_llm_calls=0" in n for n in notes)
+
+    def test_incomplete_is_pending(self, tmp_path):
+        from eval.report import d_claim
+        rel = {"n_requested": 50, "runs": 3, "n_scored": 30, "dev_cache": False,
+               "real_llm_calls": 40, "schema_valid_rate": 1.0,
+               "agreement": {"k": 30, "n": 30, "rate": 1.0},
+               "rescan_pass_rate": None, "rescan_n": 0, "complete": False}
+        results, rdir = self._make_results_with_reliability(tmp_path, rel)
+        _, notes, gates = d_claim(results, rdir)
+        assert gates["d"]["met"] is None
+
+    def test_valid_file_is_met(self, tmp_path):
+        from eval.report import d_claim
+        rel = {"n_requested": 50, "runs": 3, "n_scored": 50, "dev_cache": False,
+               "real_llm_calls": 150, "schema_valid_rate": 1.0,
+               "agreement": {"k": 50, "n": 50, "rate": 1.0},
+               "rescan_pass_rate": 1.0, "rescan_n": 5, "complete": True,
+               "rescan_exercised": True}
+        results, rdir = self._make_results_with_reliability(tmp_path, rel)
+        _, _, gates = d_claim(results, rdir)
+        assert gates["d"]["met"] is True
+
+    def test_missing_file_is_pending(self, tmp_path):
+        from eval.report import d_claim
+        results, rdir = self._make_results_with_reliability(tmp_path, None)
+        _, _, gates = d_claim(results, rdir)
+        assert gates["d"]["met"] is None
+
+    def test_rescan_from_test_run_fallback(self, tmp_path):
+        from eval.report import d_claim
+        rel = {"n_requested": 50, "runs": 3, "n_scored": 50, "dev_cache": False,
+               "real_llm_calls": 150, "schema_valid_rate": 1.0,
+               "agreement": {"k": 50, "n": 50, "rate": 1.0},
+               "rescan_pass_rate": None, "rescan_n": 0, "complete": True}
+        results, rdir = self._make_results_with_reliability(tmp_path, rel)
+        _, notes, gates = d_claim(results, rdir)
+        assert gates["d"]["met"] is True
+        assert any("frozen test run" in n for n in notes)
+
+
 class TestGateTable:
     """self_assessment._gate_table() builds rows from gates dict."""
 
