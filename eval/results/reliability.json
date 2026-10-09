@@ -1,0 +1,17 @@
+{
+  "n_requested": 50,
+  "runs": 3,
+  "n_scored": 50,
+  "dev_cache": false,
+  "real_llm_calls": 168,
+  "schema_valid_rate": 1.0,
+  "agreement": {
+    "k": 49,
+    "n": 50,
+    "rate": 0.98
+  },
+  "rescan_pass_rate": null,
+  "rescan_n": 0,
+  "rescan_exercised": false,
+  "complete": true
+}
