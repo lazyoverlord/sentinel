@@ -11,8 +11,9 @@ in the brief across 11 input sources, neutralizes them, and hardens itself with 
   LLM judge is itself an injection target.
 - **Two directions.** Ingress catches attacks going *into* the agent; an egress guard catches a hijacked
   agent trying to act (sending data to an unrequested address, leaking a secret).
-- **Fails safe.** Every failure mode is explicit per source; untrusted content is quarantined when the judge
-  is unavailable, never fed through silently.
+- **Fails safe.** Every failure mode is explicit per source: untrusted content with any detector signal
+  is quarantined when the judge is unavailable; trusted content with low signals gets `allow_with_warning`;
+  high-signal trusted content is held for review. See `gate.py:degraded_action`.
 - **Free tier only, no billing.** Gemini models by role in one project; a local Ollama model for the red
   team and demo victim; two small local classifiers. Nothing here costs money to run.
 
