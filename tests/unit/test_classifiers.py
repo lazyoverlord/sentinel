@@ -239,9 +239,20 @@ def test_gated_model_without_token_is_degraded(pins):
     bank = ClassifierBank(s, factory=rec, pins_path=pins)
     bank.load()
     assert bank.loaded == ["c1"]
-    assert bank.degraded == ["c2_86m: HF_TOKEN missing", "c2_22m: HF_TOKEN missing"]
+    assert all("HF_TOKEN" in msg for msg in bank.degraded)
     assert [c["name"] for c in rec.calls] == ["c1"]
     assert GATED == {"c2_86m", "c2_22m"}
+
+
+def test_gated_model_without_token_logs_warning(pins, caplog):
+    import logging
+    rec = Recorder()
+    s = settings(CLASSIFIERS=["c2_86m"], ALLOW_UNPINNED_MODELS=True)
+    bank = ClassifierBank(s, factory=rec, pins_path=pins)
+    with caplog.at_level(logging.WARNING):
+        bank.load()
+    assert any("HF_TOKEN not set" in r.message and "c2_86m" in r.message for r in caplog.records)
+    assert any("huggingface.co" in msg for msg in bank.degraded)
 
 
 def test_gated_model_with_token_gets_it(pins):

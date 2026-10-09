@@ -86,7 +86,8 @@ def _doctor() -> int:
         line(f"pinned revision for {name}", pins.get(mid) or s.MODEL_REVISIONS.get(mid),
              "" if pins.get(mid) else "→ python -m firewall.cli pin-models")
     if any(n.startswith("c2") for n in s.CLASSIFIERS):
-        line("HF_TOKEN set (gated Prompt Guard 2)", s.HF_TOKEN)
+        line("HF_TOKEN set (gated Prompt Guard 2)", s.HF_TOKEN,
+             "" if s.HF_TOKEN else "→ request access on huggingface.co/meta-llama/Llama-Prompt-Guard-2-86M, then set HF_TOKEN in .env")
     try:
         import httpx
         r = httpx.get(s.OLLAMA_API_BASE.rstrip("/") + "/api/tags", timeout=2)

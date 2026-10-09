@@ -24,16 +24,27 @@ in the brief across 11 input sources, neutralizes them, and hardens itself with 
 3. **Hardening loop** (red/blue agents + a canary harness): a bypass counts only if it evaded Sentinel *and*
    succeeded on an unprotected victim; validated patches need human approval.
 
+## Prerequisites
+- **Python 3.12+** and [**uv**](https://docs.astral.sh/uv/) (package manager)
+- **tesseract** — `brew install tesseract` (macOS) or `apt install tesseract-ocr` (Debian/Ubuntu)
+- A **Google AI Studio API key** (free tier, one project) — [aistudio.google.com](https://aistudio.google.com/)
+- *(optional)* **Ollama** for the local red-team / victim model; without it those roles fall back to Gemini
+- *(optional)* **HF_TOKEN** — Meta's Llama Prompt Guard 2 (classifier C2) is gated on Hugging Face.
+  To enable it: request access at `huggingface.co/meta-llama/Llama-Prompt-Guard-2-86M`, set `HF_TOKEN`
+  in `.env`, and ensure `CLASSIFIERS=c1,c2_86m`. Without it Sentinel runs on C1 plus rules. The D-claim
+  numbers in docs were measured with C2 enabled.
+
 ## Quickstart
 ```bash
 uv sync
-cp .env.example .env            # add GOOGLE_API_KEY, ADMIN_TOKEN, HF_TOKEN; set per-model limits
-uv run python -m firewall.cli pin-models   # pin classifier revisions
-uv run python -m firewall.cli doctor       # environment check
-uv run pytest -q                # ~525 tests, no network, nothing downloaded
+cp .env.example .env            # add GOOGLE_API_KEY, ADMIN_TOKEN; set per-model limits
+uv run python -m firewall.cli doctor       # environment check (needs a real Gemini key)
+uv run pytest -q                # ~560 tests, no network, nothing downloaded
 ./run.sh                        # API on :8000, Streamlit UI on :8501
 ```
-`HANDOFF.md` is the first thing to read: current build status and what needs a live check on your machine.
+`firewall/model_pins.json` ships in the repo; re-run `uv run python -m firewall.cli pin-models` only
+if you upgrade classifier versions. `HANDOFF.md` is the first thing to read: current build status and
+what needs a live check on your machine.
 
 ## Using it
 - **CLI:** `uv run python -m firewall.cli analyze "text" --source user` (or `--file doc.pdf --source uploaded`).
@@ -44,6 +55,10 @@ uv run pytest -q                # ~525 tests, no network, nothing downloaded
 `uv run python -m eval.run_eval --split dev` (deterministic, no quota), `--carriers`, `--perturb`,
 `--baseline {c1,c2,llm,full}`; then `uv run python -m eval.report` → `eval/results/report.md`, `metrics.json`,
 `claim.md`. The test split is locked until freeze (`--i-am-freezing`). Tune on dev only.
+
+Public benign datasets (NotInject, Dolly) are not in the repo (`data/public/` is gitignored). To download
+them: `uv run python -m eval.download_public` — requires the `datasets` package (included in the `eval`
+dependency group: `uv sync --group eval`).
 
 ## Docs
 `docs/SPEC.md` (what to build) · `docs/BUILD_PLAN.md` (slices) · `docs/DECISIONS.md` (every deviation) ·

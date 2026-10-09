@@ -333,7 +333,11 @@ class ClassifierBank:
                     self._failed[name] = f"{name}: revision {revision!r} is not a commit SHA ({PIN_HINT})"
                     continue
             if name in GATED and not token:
-                self._failed[name] = f"{name}: HF_TOKEN missing"
+                self._failed[name] = (
+                    f"{name}: HF_TOKEN missing — set HF_TOKEN in .env after requesting access "
+                    f"to {model_id} on huggingface.co"
+                )
+                log.warning("classifier %s skipped: HF_TOKEN not set (model %s is gated)", name, model_id)
                 continue
             try:
                 clf = self._factory(name, model_id, revision=revision or None, token=token,
